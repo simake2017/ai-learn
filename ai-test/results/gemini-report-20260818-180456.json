@@ -1,0 +1,158 @@
+{
+ "time": "2026-08-18 18:00:00",
+ "models": [
+  "gemini-3.5-flash-lite",
+  "qwen3.7-flash",
+  "gemini-3.5-flash",
+  "qwen3-coder-plus"
+ ],
+ "cases": [
+  {
+   "id": 1,
+   "name": "算法实现（考编程基本功）",
+   "answers": {
+    "gemini-3.5-flash-lite": {
+     "text": "实现 LRU（Least Recently Used，最近最少使用）缓存的核心在于：**在 $O(1)$ 时间复杂度内完成查找、插入和删除淘汰。**\n\n### 1. 关键思路说明\n\n要达到 $O(1)$ 的时间复杂度，我们需要结合两种数据结构：\n1. **哈希表（`std::unordered_map`）**：用于实现 $O(1)$ 的查找。键是缓存的 `key`，值是双向链表中节点的迭代器（或指针），通过它可以直接定位到链表中的节点。\n2. **双向链表（`std::list`）**：用于维护访问顺序。链表头部表示最近刚被使用过（Most Recently Used），链表尾部表示最久未被使用（Least Recently Used）。\n   - 当某个键被 `get` 或 `put` 时，将其对应的节点移动到链表**头部**。\n   - 当缓存容量满 (`capacity`) 且需要插入新元素时，直接移除链表**尾部**的节点，并在哈希表中删除对应记录。\n\nC++ 标准库中的 `std::unordered_map` 和 `std::list` 组合使用可以非常方便地实现这一点，且无需手动管理复杂的原生指针内存。\n\n---\n\n### 2. 完整 C++ 代码\n\n```cpp\n#include <iostream>\n#include <unordered_map>\n#include <list>\n\nclass LRUCache {\nprivate:\n    int capacity;\n    // 使用 std::list 存储键值对，链表头部为最近使用，尾部为最久未使用\n    std::list<std::pair<int, int>> cacheList;\n    \n    // 哈希表：key -> 指向 list 中节点的迭代器\n    std::unordered_map<int, decltype(cacheList.begin())> cacheMap;\n\npublic:\n    LRUCache(int capacity) : capacity(capacity) {}\n    \n    int get(int key) {\n        // 1. 如果 key 不存在，返回 -1\n        if (cacheMap.find(key) == cacheMap.end()) {\n            return -1;\n        }\n        \n        // 2. 如果 key 存在，把对应节点移动到链表头部（表示最近使用）\n        cacheList.splice(cacheList.begin(), cacheList, cacheMap[key]);\n        \n        // 3. 返回对应的值\n        return cacheMap[key]->second;\n    }\n    \n    void put(int key, int value) {\n        // 1. 如果 key 已经存在\n        if (cacheMap.find(key) != cacheMap.end()) {\n            // 更新对应的值\n            cacheMap[key]->second = value;\n            // 将其移动到链表头部\n            cacheList.splice(cacheList.begin(), cacheList, cacheMap[key]);\n            return;\n        }\n        \n        // 2. 如果 key 不存在，且容量已满，需要淘汰尾部元素\n        if (cacheList.size() >= capacity) {\n            // 获取链表尾部节点（最久未使用）\n            int oldestKey = cacheList.back().first;\n            \n            // 从哈希表中删除\n            cacheMap.erase(oldestKey);\n            \n            // 从链表中删除尾部节点\n            cacheList.pop_back();\n        }\n        \n        // 3. 插入新元素到链表头部\n        cacheList.emplace_front(key, value);\n        \n        // 在哈希表中记录新节点的迭代器\n        cacheMap[key] = cacheList.begin();\n    }\n};\n\n// 测试代码\nint main() {\n    LRUCache lRUCache(2);\n    \n    lRUCache.put(1, 1); // 缓存是 {1=1}\n    lRUCache.put(2, 2); // 缓存是 {1=1, 2=2}\n    std::cout << lRUCache.get(1) << std::endl;    // 返回 1，缓存是 {2=2, 1=1}\n    \n    lRUCache.put(3, 3); // LRU 键为 2，驱逐 2，缓存是 {1=1, 3=3}\n    std::cout << lRUCache.get(2) << std::endl;    // 返回 -1 (未找到)\n    \n    lRUCache.put(4, 4); // LRU 键为 1，驱逐 1，缓存是 {3=3, 4=4}\n    std::cout << lRUCache.get(1) << std::endl;    // 返回 -1 (未找到)\n    std::cout << lRUCache.get(3) << std::endl;    // 返回 3\n    std::cout << lRUCache.get(4) << std::endl;    // 返回 4\n\n    return 0;\n}\n```\n\n---\n\n### 3. 代码亮点与复杂度分析\n\n1. **`std::list::splice` 的妙用**：\n   在实现 LRU 时，通常需要“从原位置删除节点”并“插入到头部”。`std::list::splice` 可以在 $O(1)$ 时间内完成节点的",
+     "secs": 4.1,
+     "in_tokens": 28,
+     "out_tokens": 1196
+    },
+    "qwen3.7-flash": {
+     "text": "实现 O(1) 时间复杂度的 LRU 缓存，经典且最优的方案是：**哈希表 + 双向链表**，并配合**虚拟头尾节点**简化边界处理。\n\n### 🔑 核心设计思路\n| 组件 | 作用 | 时间复杂度 |\n|:---|:---|:---|\n| `unordered_map` | 按 `key` 快速定位节点 | 平均 O(1) |\n| 双向链表 | 维护键值对的访问顺序（头部=最近使用，尾部=最久未使用） | O(1) 增删 |\n| 虚拟头尾节点 | 消除空链表、单元素、首尾操作的特殊判断 | 常数优化 |\n\n当需要迁移节点时，只需修改相邻指针即可完成 O(1) 移动；淘汰节点时直接摘除尾节点即可。\n\n---\n\n### 💻 完整 C++ 代码\n\n```cpp\n#include <unordered_map>\n#include <iostream>\n\nclass LRUCache {\nprivate:\n    // 双向链表节点\n    struct Node {\n        int key, val;\n        Node* prev = nullptr;\n        Node* next = nullptr;\n        Node(int k, int v) : key(k), val(v) {}\n    };\n\n    int capacity_;\n    std::unordered_map<int, Node*> cache_;\n    Node* head_ = nullptr; // 虚拟头结点（指向最近使用的节点）\n    Node* tail_ = nullptr; // 虚拟尾结点（指向最久未使用的节点）\n\n    // 将指定节点插入到头结点之后（标记为最近使用）\n    void insertFront(Node* node) {\n        node->prev = head_;\n        node->next = head_->next;\n        head_->next->prev = node;\n        head_->next = node;\n    }\n\n    // 将节点从当前链表中安全移除\n    void removeFromList(Node* node) {\n        node->prev->next = node->next;\n        node->next->prev = node->prev;\n    }\n\npublic:\n    LRUCache(int capacity) : capacity_(capacity) {\n        // 初始化虚拟头尾节点并双向连接\n        head_ = new Node(0, 0);\n        tail_ = new Node(0, 0);\n        head_->next = tail_;\n        tail_->prev = head_;\n    }\n\n    ~LRUCache() {\n        // 遍历释放所有真实节点\n        Node* curr = head_->next;\n        while (curr != tail_) {\n            Node* next = curr->next;\n            delete curr;\n            curr = next;\n        }\n        delete head_;\n        delete tail_;\n    }\n\n    // O(1) 获取数据\n    int get(int key) {\n        auto it = cache_.find(key);\n        if (it == cache_.end()) return -1; // 不存在返回 -1\n\n        Node* node = it->second;\n        removeFromList(node); // 先从原位置摘除\n        insertFront(node);    // 再插到头部，标记为最近使用\n        return node->val;\n    }\n\n    // O(1) 插入/更新数据\n    void put(int key, int value) {\n        auto it = cache_.find(key);\n        if (it != cache_.end()) {\n            // Key 已存在：更新值并移到头部\n            Node* node = it->second;\n            node->val = value;\n            removeFromList(node);\n            insertFront(node);\n        } else {\n            // Key 不存在：先检查容量\n            if (static_cast<int>(cache_.size()) == capacity_) {\n                // 缓存已满，淘汰最久未使用的节点（tail 的前驱）\n                Node* lru = tail_->prev;\n                removeFromList(lru);\n                cache_.erase(lru->key);\n                delete lru;\n            }\n            // 创建新节点并插入头部\n            Node* newNode = new Node(key, value);\n            cache_[key] = newNode;\n            insertFront(newNode);\n        }\n    }\n};\n```\n\n---\n\n### 📐 关键操作详解\n\n#### 1. `get(key)` 流程\n1. 哈希表查找 → O(1)\n2. 若不存在返回 `-1`\n3. 若存在：通过指针在原链表中 `O(1)` 摘除该节点\n4. 再次 `O(1)` 插入到虚拟头节点后（视为最新访问）\n5. 返回对应值\n\n#### 2. `put(key, value)` 流程\n- **更新场景**：同 `get`，找到节点后修改值并重排至头部。\n- **插入场景**：\n  1. 若未满：直接新建节点插入头部。\n  2. 若已满：`tail_->prev` 即为最久未使用节点，`O(1)` 摘除它，清理哈希表映射并释放内存，再插入新节点。\n\n#### 3. 为什么能保证 O(1)？\n- `unordered_map` 底层是哈希表，插入/删除/查找均摊 **O(1)**。\n- 双向链表只涉及固定数量的指针重定向，无遍历，严格 **O(1)**。\n- 虚拟节点避免了 `if (head == NULL)` 或处理首尾的特殊分支，不增加渐进",
+     "secs": 40.5,
+     "in_tokens": 38,
+     "out_tokens": 4697
+    },
+    "gemini-3.5-flash": {
+     "text": ")$ average lookup.\n    *   Include headers: `<unordered_map>`, `<iostream>`.\n\n7.  **Review and Trace:**\n    *   Let's dry-run `put(1, ",
+     "secs": 16.6,
+     "in_tokens": 28,
+     "out_tokens": 1196
+    },
+    "qwen3-coder-plus": {
+     "text": "我来为你实现一个完整的LRU缓存，使用哈希表+双向链表的组合来达到O(1)的时间复杂度。\n\n```cpp\n#include <iostream>\n#include <unordered_map>\n\nclass LRUCache {\nprivate:\n    // 双向链表节点\n    struct Node {\n        int key;\n        int value;\n        Node* prev;\n        Node* next;\n        \n        Node(int k, int v) : key(k), value(v), prev(nullptr), next(nullptr) {}\n    };\n    \n    // 双向链表类\n    class DoublyLinkedList {\n    public:\n        Node* head;\n        Node* tail;\n        \n        DoublyLinkedList() {\n            head = new Node(-1, -1);  // 虚拟头节点\n            tail = new Node(-1, -1);  // 虚拟尾节点\n            head->next = tail;\n            tail->prev = head;\n        }\n        \n        ~DoublyLinkedList() {\n            delete head;\n            delete tail;\n        }\n        \n        // 在头部插入节点\n        void addToHead(Node* node) {\n            node->prev = head;\n            node->next = head->next;\n            head->next->prev = node;\n            head->next = node;\n        }\n        \n        // 删除指定节点\n        void removeNode(Node* node) {\n            node->prev->next = node->next;\n            node->next->prev = node->prev;\n        }\n        \n        // 移动节点到头部\n        void moveToHead(Node* node) {\n            removeNode(node);\n            addToHead(node);\n        }\n        \n        // 删除尾部节点（返回被删除的节点）\n        Node* removeTail() {\n            Node* lastNode = tail->prev;\n            removeNode(lastNode);\n            return lastNode;\n        }\n    };\n    \n    int capacity_;\n    int size_;\n    std::unordered_map<int, Node*> cache;  // 哈希表：key -> Node*\n    DoublyLinkedList dll;\n\npublic:\n    LRUCache(int capacity) : capacity_(capacity), size_(0) {}\n    \n    int get(int key) {\n        if (cache.find(key) == cache.end()) {\n            return -1;  // 键不存在\n        }\n        \n        // 找到节点，移动到头部（标记为最近使用）\n        Node* node = cache[key];\n        dll.moveToHead(node);\n        \n        return node->value;\n    }\n    \n    void put(int key, int value) {\n        if (cache.find(key) == cache.end()) {\n            // 键不存在，需要插入新节点\n            Node* newNode = new Node(key, value);\n            \n            if (size_ >= capacity_) {\n                // 容量已满，删除最久未使用的节点（尾部前一个节点）\n                Node* tailNode = dll.removeTail();\n                cache.erase(tailNode->key);\n                delete tailNode;\n                size_--;\n            }\n            \n            // 插入新节点到头部\n            dll.addToHead(newNode);\n            cache[key] = newNode;\n            size_++;\n        } else {\n            // 键存在，更新值并移动到头部\n            Node* node = cache[key];\n            node->value = value;\n            dll.moveToHead(node);\n        }\n    }\n    \n    // 析构函数清理内存\n    ~LRUCache() {\n        for (auto& pair : cache) {\n            delete pair.second;\n        }\n    }\n};\n\n// 测试代码\nint main() {\n    LRUCache lru(2);\n    \n    std::cout << \"测试LRU缓存:\\n\";\n    \n    lru.put(1, 1);\n    std::cout << \"put(1, 1)\\n\";\n    \n    lru.put(2, 2);\n    std::cout << \"put(2, 2)\\n\";\n    \n    std::cout << \"get(1): \" << lru.get(1) << \"\\n\";  // 返回 1\n    \n    lru.put(3, 3);  // 该操作会使得键 2 作废\n    std::cout << \"put(3, 3) - 驱逐了键 2\\n\";\n    \n    std::cout << \"get(2): \" << lru.get(2) << \"\\n\";  // 返回 -1 (未找到)\n    \n    lru.put(4, 4);  // 该操作会使得键 1 作废\n    std::cout << \"put(4, 4) - 驱逐了键 1\\n\";\n    \n    std::cout << \"get(1): \" << lru.get(1) << \"\\n\";  // 返回 -1 (未找到)\n    std::cout << \"get(3): \" << lru.get(3) << \"\\n\";  // 返回 3\n    std::cout << \"get(4): \" << lru.get(4) << \"\\n\";  // 返回 4\n    \n    return 0;\n}\n```\n\n## 关键思路说明：\n\n### 1. **数据结构选择**\n- **哈希表**：存储 key 到节点的映射，实现 O(1) 查找\n- **双向链表**：维护访问顺序，头节点是最新的，尾节点是最旧的\n\n### 2. **核心操作原理**\n\n**get 操作**：\n- 如果键存在：从哈希表找到节点，移到链表头部（最近使用），返回值\n- 如果键不存在：返回 -1\n\n**put 操作**：\n- 如果键存在：更新值，移到链表头部\n- 如果键不存在：\n",
+     "secs": 17.1,
+     "in_tokens": 38,
+     "out_tokens": 1200
+    }
+   }
+  },
+  {
+   "id": 2,
+   "name": "代码 Debug（考找 bug 能力）",
+   "answers": {
+    "gemini-3.5-flash-lite": {
+     "text": "这段代码有两个主要的 **Bug**（一个严重的逻辑/未定义行为 Bug，一个效率和迭代器失效 Bug）。\n\n### 1. Bug 分析\n\n1. **严重的 Bug（迭代器失效与未定义行为）**：\n   在循环中调用 `v.erase(it)` 会使被删除元素及其之后的所有迭代器失效。紧接着，循环表达式执行 `++it`。对一个已经失效的迭代器进行递增操作会导致**未定义行为（Undefined Behavior, UB）**，这通常会导致程序崩溃或内存错误。\n\n2. **逻辑 Bug（漏掉元素）**：\n   即使没有崩溃（例如使用返回值），`v.erase(it)` 会将后面的元素向前移动，同时返回指向被删除元素**下一个元素**的新迭代器。接着 `for` 循环又执行了 `++it`，这导致程序**跳过了**紧跟在被删除元素后面的那个元素。\n\n---\n\n### 2. 修复方法\n\n根据你的 C++ 标准，有以下几种标准的修复方案：\n\n#### 方案 A：使用 `std::remove_if`（C++98 及以上，推荐，最简洁高效）\n这是处理容器元素删除的标准“Erase-Remove”惯用法：\n\n```cpp\n#include <algorithm>\n#include <vector>\n\n// ...\nstd::vector<int> v;\n\n// 移除所有偶数\nv.erase(std::remove_if(v.begin(), v.end(), [](int x) { return x % 2 == 0; }), v.end());\n```\n\n#### 方案 B：正确处理 `erase` 的返回值（C++11 及以上）\n`std::vector::erase` 会返回一个指向紧跟其后元素的有效迭代器。如果不删除元素，我们才手动 `++it`：\n\n```cpp\n#include <vector>\n\n// ...\nstd::vector<int> v;\n\nfor (auto it = v.begin(); it != v.end(); ) {\n    if (*it % 2 == 0) {\n        it = v.erase(it); // erase 返回下一个有效的迭代器，不要执行 ++it\n    } else {\n        ++it;             // 只有在没有删除元素时才递增迭代器\n    }\n}\n```\n\n#### 方案 C：从后往前遍历（不推荐用于 `std::vector`，但逻辑可行）\n如果从后往前遍历，删除当前元素只会使前面元素的迭代器失效，不会影响后面的元素（但对于 `vector` 来说，`erase` 会导致后面的元素发生数据搬移，效率依然不如方案 A）。\n\n```cpp\nfor (auto it = v.end(); it != v.begin(); ) {\n    --it;\n    if (*it % 2 == 0) {\n        v.erase(it);\n    }\n}\n```\n\n### 总结\n对于 `std::vector`，**方案 A (`std::remove_if` + `erase`)** 是性能最好、最不容易出错的做法。",
+     "secs": 3.1,
+     "in_tokens": 70,
+     "out_tokens": 664
+    },
+    "qwen3.7-flash": {
+     "text": "这段代码存在一个典型的 **C++ 迭代器失效（Iterator Invalidation）** 问题，会导致未定义行为（UB），可能引发程序崩溃或数据错乱。\n\n### 🔍 Bug 分析\n```cpp\nfor (auto it = v.begin(); it != v.end(); ++it) {\n    if (*it % 2 == 0) v.erase(it);\n}\n```\n- `std::vector::erase(it)` 会删除 `it` 指向的元素，并**使该迭代器及之后的所有迭代器立即失效**。\n- 原代码在 `erase` 后仍然执行 `for` 循环头部的 `++it`，相当于对已经失效的迭代器进行递增和解引用操作，违反 C++ 标准，属于 **未定义行为**。\n\n---\n\n### ✅ 修复方案 1：手动维护迭代器（保留原循环结构）\n接收 `erase` 返回的有效迭代器，并移除 `for` 头部的自动递增：\n```cpp\n#include <vector>\n\nstd::vector<int> v = {1, 2, 3, 4, 5, 6}; // 示例数据\n\nfor (auto it = v.begin(); it != v.end(); ) { // ⚠️ 注意这里没有 ++it\n    if (*it % 2 == 0) {\n        it = v.erase(it); // erase 返回下一个有效位置的迭代器\n    } else {\n        ++it;             // 仅在不删除时推进迭代器\n    }\n}\n```\n\n---\n\n### 🌟 修复方案 2：使用标准库惯用法（强烈推荐）\n现代 C++ 中删除容器的特定元素应优先使用 **`erase-remove` 惯用法**，更安全、高效且不易出错：\n```cpp\n#include <vector>\n#include <algorithm>\n\nstd::vector<int> v = {1, 2, 3, 4, 5, 6};\n\n// remove_if 将满足条件的元素“逻辑上”移到末尾，返回新逻辑末尾的迭代器\nauto new_end = std::remove_if(v.begin(), v.end(), [](int x) { return x % 2 == 0; });\n// erase 一次性物理删除尾部冗余元素\nv.erase(new_end, v.end());\n```\n**优势**：\n- 只触发一次 `erase`，避免多次内存搬运和迭代器失效。\n- 时间复杂度严格为 `O(n)`，空间复杂度 `O(1)`。\n- 完全隔离了迭代器管理逻辑，符合现代 C++ 最佳实践。\n\n---\n\n### 📌 补充说明\n1. **空容器安全**：无论用哪种方式，对空 `vector` 调用均安全，无额外开销。\n2. **负数取模**：`x % 2 == 0` 对负偶数同样成立（如 `-4 % 2 == 0` 为真），符合“过滤所有偶数”的语义。若只需处理非负数，可改为 `x >= 0 && x % 2 == 0`。\n3. **编译器警告**：多数现代编译器（如 Clang/GCC）开启 `-Weffc++` 或 `-Wrange-loop-construct` 时会直接提示此处的迭代器失效风险。\n\n建议使用 **方案 2**，它不仅是修复 bug，更是写出健壮 C++ 代码的标准范式。",
+     "secs": 21.9,
+     "in_tokens": 75,
+     "out_tokens": 2396
+    },
+    "gemini-3.5-flash": {
+     "text": "这段 C++ 代码存在一个非常经典且严重的 Bug：**迭代器失效（Iterator Invalidation）**导致的未定义行为（通常会崩溃或漏掉元素）。\n\n### Bug 原因分析\n\n1. **迭代器失效**：当调用 `v.erase(it)` 时，当前迭代器 `it` 及其后面的所有迭代器都会失效。\n2. **未定义行为**：在 `erase` 之后，循环体结束，执行了 `++it`。在一个已经失效的迭代器上进行自增操作，会导致程序崩溃、死循环或产生野指针。\n3. **元素漏检**：即使没有崩溃，`v.erase(it)` 会将后面的元素往前移动。如果不做调整直接 `++it`",
+     "secs": 21.4,
+     "in_tokens": 70,
+     "out_tokens": 1196
+    },
+    "qwen3-coder-plus": {
+     "text": "这段代码存在一个严重的 bug：\n\n## Bug 分析\n\n**主要问题：迭代器失效**\n- 当 `v.erase(it)` 执行时，被删除元素的迭代器 `it` 会失效\n- 在 `it` 失效后继续使用 `++it` 是未定义行为\n- 由于容器为空（`v.begin() == v.end()`），循环实际上不会执行，但代码逻辑是错误的\n\n## 修复方案\n\n### 方案1：使用 erase-remove 惯用法（推荐）\n```cpp\nstd::vector<int> v;\n// 先添加一些数据用于演示\nv = {1, 2, 3, 4, 5, 6};\n\n// 使用 remove_if + erase 组合\nv.erase(std::remove_if(v.begin(), v.end(), [](int x) { \n    return x % 2 == 0; \n}), v.end());\n```\n\n### 方案2：使用 erase 返回的新迭代器\n```cpp\nstd::vector<int> v;\nv = {1, 2, 3, 4, 5, 6};\n\nfor (auto it = v.begin(); it != v.end();) {\n    if (*it % 2 == 0) {\n        it = v.erase(it); // erase 返回指向下一个元素的有效迭代器\n    } else {\n        ++it; // 只有不删除时才前进\n    }\n}\n```\n\n### 方案3：反向遍历\n```cpp\nstd::vector<int> v;\nv = {1, 2, 3, 4, 5, 6};\n\nfor (auto it = v.rbegin(); it != v.rend();) {\n    if (*it % 2 == 0) {\n        it = decltype(it){v.erase(std::next(it).base())};\n    } else {\n        ++it;\n    }\n}\n```\n\n### 方案4：使用索引遍历\n```cpp\nstd::vector<int> v;\nv = {1, 2, 3, 4, 5, 6};\n\nfor (int i = v.size() - 1; i >= 0; --i) {\n    if (v[i] % 2 == 0) {\n        v.erase(v.begin() + i);\n    }\n}\n```\n\n**推荐使用方案1**，因为它最高效且不易出错。如果需要在遍历过程中进行复杂的条件判断，方案2是最佳选择。",
+     "secs": 9.5,
+     "in_tokens": 69,
+     "out_tokens": 523
+    }
+   }
+  },
+  {
+   "id": 3,
+   "name": "复杂推理（考深度思考）",
+   "answers": {
+    "gemini-3.5-flash-lite": {
+     "text": "这是一个经典的逻辑推理题。在保证狼不吃羊、羊不吃菜的前提下，将所有物品运过河需要 **7个步骤**。\n\n### 一、 完整过河步骤\n\n* **初始状态**：岸边 A（起点）有：农夫、狼、羊、白菜；岸边 B（终点）无。\n* **第一步**：农夫带**羊**过河（岸边 A 剩：狼、白菜；岸边 B 有：农夫、羊）。\n* **第二步**：农夫**独自返回**岸边 A（岸边 A 有：农夫、狼、白菜；岸边 B 有：羊）。\n* **第三步**：农夫带**狼**过河（岸边 A 剩：白菜；岸边 B 有：农夫、狼、羊）。\n* **第四步**：农夫带**羊****返回**岸边 A（岸边 A 有：农夫、羊、白菜；岸边 B 有：狼）。*（注：也可以选择带白菜过去，逻辑对称，以下以带羊返回为例）*\n* **第五步**：农夫带**白菜**过河（岸边 A 剩：羊；岸边 B 有：农夫、白菜、狼）。\n* **第六步**：农夫**独自返回**岸边 A（岸边 A 有：农夫、羊；岸边 B 有：狼、白菜）。\n* **第七步**：农夫带**羊**过河（岸边 A 全空；岸边 B 有：农夫、狼、羊、白菜）。\n\n---\n\n### 二、 为什么 7 步是唯一的最优解结构？\n\n这里的“最优解”是指**总运送次数最少（7次）**。通过逻辑推导，每一步的选择其实都被规则紧紧锁死，几乎没有其他分支。\n\n#### 1. 为什么第一步只能带“羊”？\n* 如果第一步带**狼**：岸边会剩下“羊”和“白菜”。羊会吃掉白菜。因此不行。\n* 如果第一步带**白菜**：岸边会剩下“狼”和“羊”。狼会吃掉羊。因此不行。\n* **结论**：第一步**必须且只能带羊**。\n\n#### 2. 为什么第二步农夫必须自己返回？\n* 刚完成第一步时，农夫和羊在对岸（B岸），狼和白菜在原岸（A岸）。\n* 农夫必须回到 A 岸才能运送剩下的东西。如果把羊留在 B 岸不管，羊不会自己过河；如果把羊带回 A 岸，就等于白跑一趟，进度归零。\n* **结论**：农夫必须**独自返回** A 岸。\n\n#### 3. 为什么第三步只能带狼（或白菜），且不能把羊留在终点？\n* 回到 A 岸后，农夫面对的是：狼、白菜，以及岸上的农夫自己（羊已经在 B 岸）。\n* 此时农夫需要把狼或白菜运过去。假设运**狼**过河（运白菜同理）。\n* 到了 B 岸后，岸上有：农夫、狼、羊。此时**绝对不能把狼和羊单独留在 B 岸**（狼会吃羊）。因此，农夫在把狼放下后，**必须顺便把羊再带回 A 岸**（这就是第四步）。\n\n#### 4. 为什么第五步带另一件物品？\n* 经过第四步，农夫把羊带回了 A 岸。此时 A 岸有：农夫、羊、白菜（狼在 B 岸）。\n* 既然第一趟运了羊，第三趟运了狼，这一趟自然轮到运**白菜**。\n* 农夫带白菜去 B 岸，与 B 岸的狼会合（狼不吃白菜，安全）。\n\n#### 5. 为什么第六步农夫必须独自返回？\n* 此时 B 岸有：狼、白菜。A 岸有：农夫、羊。\n* 农夫需要回 A 岸把最后一只羊接过来。为了不让 B 岸的狼吃白菜（虽然狼不吃白菜，但如果把白菜带回 A 岸就白运了），农夫必须**独自返回** A 岸。\n\n#### 6. 为什么第七步带羊过河就完成了？\n* 农夫回到 A 岸，抱起最后的羊，运到 B 岸。此时 B 岸集齐了狼、羊、白菜，且有农夫看守，任务完成。\n\n### 总结\n整个过程由于“狼吃羊”、“羊吃菜”的限制，以及“船只能载一样”的容量限制，**每一个到达某个状态的下一步动作几乎都是唯一的解法**。试图减少步数（比如少于7步）会导致约束条件被打破（动物被吃），因此 7 步是逻辑上的唯一的最优解结构。",
+     "secs": 5.1,
+     "in_tokens": 60,
+     "out_tokens": 1134
+    },
+    "qwen3.7-flash": {
+     "text": "这是一个经典的逻辑谜题。下面给出标准答案，并从约束条件、状态转移和图论角度严格论证其**唯一最优解结构**。\n\n### 一、完整过河步骤（共7趟）\n用 `L` 表示左岸（起点），`R` 表示右岸（终点）。农夫记为 `F`，狼 `W`，羊 `G`，白菜 `C`。\n\n| 趟次 | 动作                | L岸剩余       | R岸剩余       | 是否安全（无人看管时） |\n|------|---------------------|---------------|---------------|------------------------|\n| 初始 |                     | `F, W, G, C`  | `空`          | ✓                      |\n| 1    | F 带 G → R          | `W, C`        | `G`           | ✓（狼菜独处无害）      |\n| 2    | F ← L（空船）       | `F, W, C`     | `G`           | ✓                      |\n| 3    | F 带 W → R          | `C`           | `W, G`        | （F在场，安全）         |\n| 4    | F 带 G ← L          | `G, C`        | `W`           | （F在场，安全）         |\n| 5    | F 带 C → R          | `G`           | `W, C`        | ✓（狼菜共处无害）      |\n| 6    | F ← L（空船）       | `F, G`        | `W, C`        | ✓                      |\n| 7    | F 带 G → R          | `空`          | `W, G, C`     | ✓                      |\n\n> 📌 **注**：第3步也可改为“先带白菜”，第5步改为“带狼”。两者互为镜像，不改变逻辑结构。\n\n---\n\n### 二、为什么这是“唯一的最优解结构”？\n\n所谓“唯一的最优解结构”，指：**任何满足题设约束且步数最少的方案，其动作依赖链、角色分工与最少趟数完全一致**。理由如下：\n\n#### 1. 首步必须带羊，否则立即死锁\n- 若首步带狼：左岸剩 `G, C` → 羊吃白菜 ❌\n- 若首步带白菜：左岸剩 `W, G` → 狼吃羊 ❌\n- **只有首步带羊**，左岸留下 `W, C`（相安无事），才可能继续。  \n→ **第1步被物理约束强制锁定，无其他选择。**\n\n#### 2. 第4步“带羊返回”是结构瓶颈，不可替代\n- 第3步将狼（或白菜）送到右岸后，右岸变为 `羊+狼`（或 `羊+白菜`）。此时若农夫独自返回，右岸必发生吞噬。\n- 船容量限制为1，农夫无法同时带走两物；唯一能打破新形成的冲突对的方法，就是**把羊重新带回左岸**。\n- 这一步不是“可选技巧”，而是**维持系统安全的必要逆向操作**。跳过它直接导致状态非法；替换它（如留狼走、或带白菜走）同样违反容量或冲突规则。  \n→ **第4步的存在是结构必然，无冗余也无省略可能。**\n\n#### 3. 剩余步骤具有强确定性\n- 第4步结束后，左岸有 `G, C`，右岸有 `W`（或对称情况）。羊已安全隔离，剩余物品可自由配对。\n- 农夫只需按固定流程：带另一件过右岸 → 空船返回 → 接羊过右岸。每一步都无分支选择，否则会增加往返次数或制造新冲突。\n→ **一旦突破“带羊返回”这个瓶颈，后续路径呈线性闭合，无其他合法展开方式。**\n\n#### 4. 7步为理论下界（图论/状态空间证明）\n- 将每次渡河视为状态节点，共 $2^4=16$ 种物品分布组合，剔除含冲突的非法状态后，合法状态图是一个稀疏连通图。\n- 使用BFS（广度优先搜索）从初始态遍历至目标态，**最短路径长度严格为7**。任何试图压缩到5步的方案都会违反：\n  - 船容量约束（单次最多移动1非农夫物品）\n  - 冲突约束（羊不能与狼或菜独处）\n  - 农夫必须驾船的约束（每趟必含F）\n- 数学上可证明：解决此类“三角冲突”（A-B、B-C冲突，A-C安全）的河流穿越问题，在单容量船上必至少需 $2n+1$ 步（$n$为动物数），此处 $n=2$ 有效隔离对 → 7步最小。\n\n#### 5. 关于“对称变体”的说明\n- 狼与白菜在冲突图中地位完全对称，因此存在两种表层顺序（先狼后菜 / 先菜后狼）。但它们的**逻辑骨架完全同构**：首步必运羊 → 第三步建冲突 → 第四步必须返羊 → 第五步清场 → 第六步返程 → 第七步收尾。\n- 这属于解空间的对称等价类，不破坏“结构唯一性”的论断。\n\n---\n\n### 三",
+     "secs": 39.8,
+     "in_tokens": 60,
+     "out_tokens": 3892
+    },
+    "gemini-3.5-flash": {
+     "error": "HTTP Error 503: Service Unavailable"
+    },
+    "qwen3-coder-plus": {
+     "text": "我来分析这个经典的渡河问题。\n\n## 完整过河步骤\n\n**初始状态：** 左岸[农夫, 狼, 羊, 白菜]，右岸[]\n\n1. **农夫带羊到右岸**\n   - 左岸[狼, 白菜]，右岸[农夫, 羊]\n   - （狼不吃白菜，安全）\n\n2. **农夫独自返回左岸**\n   - 左岸[农夫, 狼, 白菜]，右岸[羊]\n\n3. **农夫带狼到右岸**\n   - 左岸[白菜]，右岸[农夫, 狼, 羊]\n   - （此时不能留狼和羊在一起）\n\n4. **农夫带羊返回左岸**\n   - 左岸[农夫, 羊, 白菜]，右岸[狼]\n\n5. **农夫带白菜到右岸**\n   - 左岸[羊]，右岸[农夫, 狼, 白菜]\n   - （羊和白菜不能独处，所以农夫必须带回羊）\n\n6. **农夫独自返回左岸**\n   - 左岸[农夫, 羊]，右岸[狼, 白菜]\n\n7. **农夫带羊到右岸**\n   - 左岸[]，右岸[农夫, 狼, 羊, 白菜]\n   - **完成！**\n\n## 为什么这是唯一的最优解\n\n### 最优性证明（最少步数）\n- 每样物品都需要过河，农夫必须来回运输\n- 至少需要7次渡河才能完成（数学上可证明这是下界）\n\n### 唯一性分析\n\n**关键约束条件：**\n1. 狼羊不能独处\n2. 羊菜不能独处  \n3. 船只载一人一物\n\n**必经的关键点：**\n\n1. **第一次必须带羊** - 如果带狼或白菜，都会留下羊和另一个独处\n2. **中间必须来回切换** - 必须用羊作为\"缓冲\"，避免狼羊或羊菜独处\n3. **结构固定** - \n   - 先运羊 → 运狼（或菜）→ 带回羊 → 运菜（或狼）→ 再运羊\n   - 这个序列是唯一满足所有约束的\n\n**对称性考虑：**\n虽然可以先运狼再运白菜，或先运白菜再运狼，但本质结构相同：\n- 都是以羊为核心进行两次运输\n- 都遵循\"运A→带回羊→运B→运羊\"的模式\n\n因此，这个解在同构意义下是**唯一**的最优解。任何其他策略要么违反约束条件，要么需要更多步数。",
+     "secs": 11.3,
+     "in_tokens": 62,
+     "out_tokens": 629
+    }
+   }
+  },
+  {
+   "id": 4,
+   "name": "简单问答（轻量档的主场）",
+   "answers": {
+    "gemini-3.5-flash-lite": {
+     "text": "`s[::-1]`",
+     "secs": 1.0,
+     "in_tokens": 13,
+     "out_tokens": 5
+    },
+    "qwen3.7-flash": {
+     "text": "`s[::-1]`",
+     "secs": 6.1,
+     "in_tokens": 22,
+     "out_tokens": 788
+    },
+    "gemini-3.5-flash": {
+     "text": "在 Python 中，可以使用切片（slicing）一行代码反转字符串：\n\n```python\nreversed_str = s[::-1]  # s 是原字符串\n```",
+     "secs": 11.7,
+     "in_tokens": 13,
+     "out_tokens": 239
+    },
+    "qwen3-coder-plus": {
+     "text": "```python\ns[::-1]\n```\n\n这是Python中字符串反转最常用的方法，使用切片操作，`[::-1]` 表示从末尾开始以步长-1遍历整个字符串。",
+     "secs": 1.3,
+     "in_tokens": 20,
+     "out_tokens": 45
+    }
+   }
+  },
+  {
+   "id": 5,
+   "name": "系统设计（考架构视野）",
+   "answers": {
+    "gemini-3.5-flash-lite": {
+     "text": "### 1. ID 生成方案\n采用 **预生成号段模式 + 62进制编码**（a-z, A-Z, 0-9）。\n*   **离线服务**：分布式 ID 生成器（如美团 Leaf）批量生成自增长数字 ID。\n*   **编码转换**：将数字 ID 转为 62 进制字符串（如 `100000` 转为 `q0U`），短小且安全。\n\n### 2. 存储选型\n**MySQL（持久化） + Redis（缓存）**\n*   **MySQL**：存储长短链接映射关系（`id`, `short_key` (Unique), `long_url`, `created_at`）。\n*   **预估容量**：日写入 100 万，一年约 3.6 亿。单表可承受，前期无需分库分表。\n\n### 3. 缓存策略\n针对读多写少（100:1），核心在于 **Redis + 多级缓存**：\n*   **Redis 缓存**：Key 为 `short_key`，Value 为 `long_url`。\n*   **缓存穿透/击穿**：对不存在的 Key 缓存空对象；热点数据永不过期，通过异步队列更新。\n*   **客户端缓存**：301 永久重定向（配合浏览器缓存），直接减轻服务端压力。\n\n### 4. 关键权衡（Trade-offs）\n1.  **301 vs 302 重定向**：\n    *   选 **301**（永久重定向）：浏览器会缓存，服务器几乎无感知，最省资源。缺点是无法准确统计点击量。\n    *   选 **302**（临时重定向）：每次点击都请求服务器，方便统计 PV/UV，但对后端压力大（日活 1 亿需支撑较大 QPS）。*折中方案：对普通用户用 301，需埋点统计的生成特殊带参数链接用 302。*\n2.  **写：雪花算法 vs 号段模式**：\n    *   雪花算法生成的 ID 趋势递增但可能不连续，62 进制化后长度不稳定（会随时间变长）。\n    *   号段模式保证 ID 严格自增，前期生成的短链长度固定为 6 位，美观且高效。",
+     "secs": 3.4,
+     "in_tokens": 49,
+     "out_tokens": 537
+    },
+    "qwen3.7-flash": {
+     "text": "**ID生成**：改良雪花算法输出64位有序数值，转换Base62（含大小写字母与数字）得6-8位短串。自带时钟有序利于热点识别，预留机位/业务段防冲突，碰撞概率趋近于零。\n\n**存储选型**：MySQL分库分表（按short_id哈希）作主存储，保障强一致与多维查询；Redis Cluster作缓存层。日均仅11 TPS写、1150 QPS读，轻量高可用的组合即可稳定支撑，横向扩容成本低。\n\n**缓存策略**：缓存旁路模式。遵循URL访问幂律分布，热门短链设长TTL+逻辑过期，冷门直接回源。防穿透用布隆过滤器；写操作更新DB后延迟双删或异步失效，确保最终一致。\n\n**关键权衡**：①一致性与性能：读多写少场景下，牺牲微秒级强一致换取P99低延迟；②存储分层：Redis抗突发读取，MySQL承载分析与容灾，平衡内存成本与数据能力；③架构余量：当前负载远低于设计上限，方案侧重高可用与故障隔离，避免过度优化单机吞吐而增加运维复杂度。",
+     "secs": 26.4,
+     "in_tokens": 58,
+     "out_tokens": 2475
+    },
+    "gemini-3.5-flash": {
+     "text": "这是一个针对日写 100 万、日读 1 亿（典型读多写少，读 QPS 约 1.2k，峰值 10k+）的短链接系统设计",
+     "secs": 19.3,
+     "in_tokens": 49,
+     "out_tokens": 1196
+    },
+    "qwen3-coder-plus": {
+     "text": "## 短链接服务设计方案\n\n**ID生成方案**\n- 雪花算法：64位ID = 1位符号 + 41位时间戳 + 10位机器码 + 12位序列号\n- 支持每毫秒4096个唯一ID，满足100万/天需求\n\n**存储选型**\n- Redis：热点数据缓存，O(1)查询性能\n- MySQL：持久化存储，主从架构保证可靠性\n- 分库分表：按hash(id)分片，水平扩展\n\n**缓存策略**\n- L1缓存：Redis集群，存储热门短链映射\n- L2缓存：本地缓存(Caffeine)，减少网络开销\n- 缓存淘汰：LRU策略，TTL设置30分钟\n\n**关键权衡**\n\n*性能 vs 存储*：\n- 冷热分离：热数据放内存，冷数据落磁盘\n- 压缩策略：长URL采用LZ4压缩\n\n*一致性 vs 可用性*：\n- 读操作优先高可用，允许短暂不一致\n- 写操作强一致性，避免重复短链\n\n*成本控制*：\n- 预估存储：100万×6个月×30天 = 18亿条记录\n- 内存分配：热点数据约10%，预估2GB Redis\n\n**架构流程**\n```\n写请求 → ID生成器 → Redis写入 → 异步落盘MySQL\n读请求 → L1缓存 → L2缓存 → DB回源 → 更新缓存\n```\n\n该方案支持QPS千万级别访问，通过多级缓存和异步处理，满足读1亿/天的性能要求。",
+     "secs": 9.3,
+     "in_tokens": 60,
+     "out_tokens": 384
+    }
+   }
+  }
+ ]
+}

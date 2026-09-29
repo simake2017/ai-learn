@@ -1,0 +1,22 @@
+{
+ "gemini-3.5-flash-lite": {
+  "secs": 1.9,
+  "stage": "运行通过",
+  "detail": "PASS"
+ },
+ "qwen3.7-flash": {
+  "secs": 46.7,
+  "stage": "编译失败",
+  "detail": "/tmp/lfu_1.cpp: In member function ‘int LFUCache::get(int)’:"
+ },
+ "gemini-3.5-flash": {
+  "secs": 9.6,
+  "stage": "提取失败",
+  "detail": "Answering Process Complete. Let's assemble the requested strict format. No main function, no explanations, just the raw C++ code. ```cpp #include <ios"
+ },
+ "qwen3-coder-plus": {
+  "secs": 9.4,
+  "stage": "运行通过",
+  "detail": "PASS"
+ }
+}

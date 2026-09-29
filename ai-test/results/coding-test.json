@@ -1,0 +1,22 @@
+{
+ "gemini-3.5-flash-lite": {
+  "secs": 2.4,
+  "stage": "运行通过",
+  "detail": "PASS"
+ },
+ "qwen3.7-flash": {
+  "secs": 33.7,
+  "stage": "运行通过",
+  "detail": "PASS"
+ },
+ "gemini-3.5-flash": {
+  "secs": 7.3,
+  "stage": "运行通过",
+  "detail": "PASS"
+ },
+ "qwen3-coder-plus": {
+  "secs": 4.7,
+  "stage": "运行通过",
+  "detail": "PASS"
+ }
+}

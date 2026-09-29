@@ -1,0 +1,88 @@
+/* =============================================================================
+ * attention.c - 多头因果自注意力（Multi-Head Causal Self-Attention）
+ *
+ * 输入：inp 是 (B, T, 3C) 拼起来的 Q/K/V（由 matmul 一次性算出）
+ * 输出：out 是 (B, T, C)
+ *
+ * 4 步流程（每个 (b, t, h)）：
+ *   1. 算 Q·K^T / sqrt(d)，并记录最大值（数值稳定）
+ *   2. exp(x - max)，累加和
+ *   3. 归一化（顺便实现 causal mask：未来位置 = 0）
+ *   4. 加权求和 V
+ *
+ * 因果掩码：只算 t2 <= t（位置 t 看不到未来）
+ * =============================================================================
+ */
+
+#include "transformer.h"
+
+void attention_forward(float* out, float* preatt, float* att,
+                       const float* inp,
+                       int B, int T, int C, int NH) {
+    int C3 = C * 3;          // Q/K/V 拼起来
+    int hs = C / NH;         // 每个 head 维度
+    float scale = 1.0f / sqrtf((float)hs);
+
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            for (int h = 0; h < NH; h++) {
+                // 取出位置 (b, t, h) 的 Q
+                // Q 在 inp 的前 C 维
+                const float* query_t = inp + b * T * C3 + t * C3 + h * hs;
+
+                // preatt[b, h, t, :] 和 att[b, h, t, :]
+                float* preatt_bth = preatt + ((b * NH + h) * T + t) * T;
+                float* att_bth = att + ((b * NH + h) * T + t) * T;
+
+                // === Step 1: Q · K^T / sqrt(d) ===
+                // 顺便找出最大值（softmax 数值稳定）
+                float maxval = -1e30f;
+                for (int t2 = 0; t2 <= t; t2++) {  // ← 因果 mask：只看 ≤ t
+                    // K 在 inp 的中间 C 维
+                    const float* key_t2 = inp + b * T * C3 + t2 * C3 + h * hs + C;
+
+                    // 点积
+                    float val = 0.0f;
+                    for (int i = 0; i < hs; i++) {
+                        val += query_t[i] * key_t2[i];
+                    }
+                    val *= scale;
+
+                    preatt_bth[t2] = val;
+                    if (val > maxval) maxval = val;
+                }
+
+                // === Step 2: exp(x - max) + 累加 ===
+                float sum = 0.0f;
+                for (int t2 = 0; t2 < T; t2++) {
+                    if (t2 <= t) {
+                        float e = expf(preatt_bth[t2] - maxval);
+                        att_bth[t2] = e;
+                        sum += e;
+                    } else {
+                        // 因果 mask：未来位置 = 0
+                        att_bth[t2] = 0.0f;
+                    }
+                }
+
+                // === Step 3: 归一化 ===
+                float inv_sum = 1.0f / sum;
+                for (int t2 = 0; t2 <= t; t2++) {
+                    att_bth[t2] *= inv_sum;
+                }
+
+                // === Step 4: 加权求和 V ===
+                // V 在 inp 的最后 C 维
+                for (int i = 0; i < hs; i++) {
+                    float o = 0.0f;
+                    for (int t2 = 0; t2 <= t; t2++) {
+                        const float* value_t2 = inp + b * T * C3 + t2 * C3 + h * hs + 2 * C;
+                        o += att_bth[t2] * value_t2[i];
+                    }
+                    // out[b, t, h, i]
+                    out[b * T * C + t * C + h * hs + i] = o;
+                }
+            }
+        }
+    }
+}
