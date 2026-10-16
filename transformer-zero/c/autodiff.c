@@ -7,7 +7,14 @@ void compute_numerical_grads(GPT* model, const int* inputs, const int* targets, 
         return;
     }
 
-    printf("Computing numerical grads: %d params, eps=%g\n", n, eps);
+    /* 安静模式：lines/ 学习线批量训练时每个 step 都会调用本函数，
+     * 进度条会把逐跳日志淹没。设 NUMGRAD_QUIET=1 静默（只算梯度不打印）。
+     * 交互训练（c/main.c）不设该变量，行为与之前完全一致。 */
+    int quiet = (getenv("NUMGRAD_QUIET") != NULL &&
+                 strcmp(getenv("NUMGRAD_QUIET"), "1") == 0);
+    if (!quiet) {
+        printf("Computing numerical grads: %d params, eps=%g\n", n, eps);
+    }
 
     float saved_loss = model->mean_loss;
 
@@ -30,7 +37,7 @@ void compute_numerical_grads(GPT* model, const int* inputs, const int* targets, 
         // 还原
         model->params_memory[i] = saved;
 
-        if (i % 5000 == 0 || i == n - 1) {
+        if (!quiet && (i % 5000 == 0 || i == n - 1)) {
             printf("  grad %d / %d (%.1f%%), sample = %g\n",
                    i, n, 100.0f * i / n, model->grads_memory[i]);
         }

@@ -47,3 +47,20 @@ foreach(test_name ${TESTS})
     target_include_directories(${test_name} PRIVATE .)
     target_link_libraries(${test_name} m)
 endforeach()
+
+# ============================================================
+# 学习线: lines/（端到端调用链，逐跳日志，非单元测试）
+#   ./lines_all list        列出所有线
+#   ./lines_all <名字>      跑一条线
+#   ./lines_all all         全跑（LINE_QUIET=1 安静模式，可进 CI）
+# ============================================================
+set(LINE_SOURCES
+    lines/_shared/line.c
+    lines/lines_registry.c
+    lines/line_ln_attn.c
+    lines/line_tiny_train.c
+)
+
+add_executable(lines_all lines/lines_main.c ${LINE_SOURCES} ${CORE_SOURCES})
+target_include_directories(lines_all PRIVATE . lines/_shared)
+target_link_libraries(lines_all m)
