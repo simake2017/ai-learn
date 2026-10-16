@@ -28,100 +28,146 @@ int main() {
     TEST_BEGIN("QKV 投影 (一次 matmul 生成 Q/K/V)");
 
     /* ──────────────────────────────────────────────
-     * 简化参数: B=1, T=1, C=2 (2 维词向量)
+     * 参数配置: B=1, T=2 (2 个 token), C=3 (3 维特征)
      *
-     * 输入 x = [1.0, 2.0]  (1 个 token, 2 维)
+     * 输入 x (2 × 3):
+     *   token 0: [1.0, 2.0, 3.0]
+     *   token 1: [4.0, 5.0, 6.0]
      *
-     * W_Q = | 1  0 |    → Q = x @ W_Q^T = [1, 2]
-     *       | 0  1 |
+     * W_Q (3×3，恒等特征抽取):
+     *   | 1 0 0 |  → Q0 = [1, 2, 3],  Q1 = [4, 5, 6]
+     *   | 0 1 0 |
+     *   | 0 0 1 |
      *
-     * W_K = | 1  1 |    → K = x @ W_K^T = [3, 3]
-     *       | 1  1 |
+     * W_K (3×3，逆序特征抽取):
+     *   | 0 0 1 |  → K0 = [3, 2, 1],  K1 = [6, 5, 4]
+     *   | 0 1 0 |
+     *   | 1 0 0 |
      *
-     * W_V = | 0  1 |    → V = x @ W_V^T = [2, 2]
-     *       | 0  1 |
+     * W_V (3×3，组合特征抽取):
+     *   | 1 1 0 |  → V0 = [1+2, 2+3, 1+3] = [3, 5, 4]
+     *   | 0 1 1 |  → V1 = [4+5, 5+6, 4+6] = [9, 11, 10]
+     *   | 1 0 1 |
      *
-     * bias 全部为 0
+     * 输出形状: (B, T, 3C) = (1, 2, 9) 共 18 个数
+     * 内存排布: 每个 token 独占一段 3C (9) 维连续内存 [Q | K | V]
      * ────────────────────────────────────────────── */
 
-    int B = 1, T = 1, C = 2;
+    int B = 1, T = 2, C = 3;
 
-    float x[] = {1.0f, 2.0f};
-
-    /* 拼接 W_QKV: (3C × C) = (6 × 2)
-     * 前 2 行 = W_Q, 中间 2 行 = W_K, 后 2 行 = W_V */
-    float qkvw[] = {
-        1, 0,    /* W_Q 第 1 行 */
-        0, 1,    /* W_Q 第 2 行 */
-        1, 1,    /* W_K 第 1 行 */
-        1, 1,    /* W_K 第 2 行 */
-        0, 1,    /* W_V 第 1 行 */
-        0, 1,    /* W_V 第 2 行 */
+    float x[] = {
+        1.0f, 2.0f, 3.0f,   /* token 0 */
+        4.0f, 5.0f, 6.0f    /* token 1 */
     };
 
-    float qkvb[] = {0, 0, 0, 0, 0, 0};  /* 6 个 bias 全 0 */
-    float out[6];  /* (1, 1, 3C) = 6 个元素 */
+    /* 拼接 W_QKV: (3C × C) = (9 × 3)
+     * 前 3 行 = W_Q, 中间 3 行 = W_K, 后 3 行 = W_V */
+    float qkvw[] = {
+        /* W_Q (3×3) */
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+        /* W_K (3×3) */
+        0, 0, 1,
+        0, 1, 0,
+        1, 0, 0,
+        /* W_V (3×3) */
+        1, 1, 0,
+        0, 1, 1,
+        1, 0, 1
+    };
 
-    print_vec("x (输入)", x, C);
-    print_mat("W_QKV (6×2)", qkvw, 6, 2);
+    float qkvb[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};  /* 9 个 bias 全 0 */
+    float out[18];  /* (B=1, T=2, 3C=9) = 18 个元素 */
+
+    print_mat("x (2个 Token, 每个3维)", x, T, C);
+    print_mat("W_QKV (9×3, 包含WQ, WK, WV)", qkvw, 3 * C, C);
     print_sep();
 
     /* 调用 matmul_forward: out = x @ W_qkv^T + b */
     matmul_forward(out, x, qkvw, qkvb, B, T, C, 3 * C);
 
-    print_vec("QKV 输出 (拼接)", out, 3 * C);
+    print_mat("QKV 输出 (2行, 每行9维 [Q|K|V])", out, T, 3 * C);
     print_sep();
 
-    /* 拆分 Q, K, V 并验证 */
-    float* Q = out;           /* 前 C 个元素 */
-    float* K = out + C;       /* 中间 C 个元素 */
-    float* V = out + 2 * C;   /* 后 C 个元素 */
+    /* ──────────────────────────────────────────────
+     * 拆分验证: 验证内存排布与手算一致性
+     * 注意：对每个 token t，其在 out 中的偏移是 t * 3C
+     * ────────────────────────────────────────────── */
+    printf("--- 拆分 Token 0 的 Q, K, V ---\n\n");
+    float* Q0 = out + 0 * (3 * C);
+    float* K0 = Q0 + C;
+    float* V0 = K0 + C;
+    print_vec("Q0", Q0, C);
+    print_vec("K0", K0, C);
+    print_vec("V0", V0, C);
 
-    printf("--- 拆分 Q, K, V ---\n\n");
-    print_vec("Q", Q, C);
-    print_vec("K", K, C);
-    print_vec("V", V, C);
+    printf("\nToken 0 验证:\n");
+    ASSERT_CLOSE(Q0[0], 1.0f, 1e-5, "Q0[0] = 1");
+    ASSERT_CLOSE(Q0[1], 2.0f, 1e-5, "Q0[1] = 2");
+    ASSERT_CLOSE(Q0[2], 3.0f, 1e-5, "Q0[2] = 3");
+
+    ASSERT_CLOSE(K0[0], 3.0f, 1e-5, "K0[0] = 3");
+    ASSERT_CLOSE(K0[1], 2.0f, 1e-5, "K0[1] = 2");
+    ASSERT_CLOSE(K0[2], 1.0f, 1e-5, "K0[2] = 1");
+
+    ASSERT_CLOSE(V0[0], 3.0f, 1e-5, "V0[0] = 1+2 = 3");
+    ASSERT_CLOSE(V0[1], 5.0f, 1e-5, "V0[1] = 2+3 = 5");
+    ASSERT_CLOSE(V0[2], 4.0f, 1e-5, "V0[2] = 1+3 = 4");
     print_sep();
 
-    printf("--- 手算验证 ---\n");
-    printf("Q = [1,2] @ W_Q^T = [1×1+2×0, 1×0+2×1] = [1, 2]\n");
-    ASSERT_CLOSE(Q[0], 1.0f, 1e-5, "Q[0]");
-    ASSERT_CLOSE(Q[1], 2.0f, 1e-5, "Q[1]");
+    printf("--- 拆分 Token 1 的 Q, K, V ---\n\n");
+    float* Q1 = out + 1 * (3 * C);
+    float* K1 = Q1 + C;
+    float* V1 = K1 + C;
+    print_vec("Q1", Q1, C);
+    print_vec("K1", K1, C);
+    print_vec("V1", V1, C);
 
-    printf("K = [1,2] @ W_K^T = [1×1+2×1, 1×1+2×1] = [3, 3]\n");
-    ASSERT_CLOSE(K[0], 3.0f, 1e-5, "K[0]");
-    ASSERT_CLOSE(K[1], 3.0f, 1e-5, "K[1]");
+    printf("\nToken 1 验证:\n");
+    ASSERT_CLOSE(Q1[0], 4.0f, 1e-5, "Q1[0] = 4");
+    ASSERT_CLOSE(Q1[1], 5.0f, 1e-5, "Q1[1] = 5");
+    ASSERT_CLOSE(Q1[2], 6.0f, 1e-5, "Q1[2] = 6");
 
-    printf("V = [1,2] @ W_V^T = [1×0+2×1, 1×0+2×1] = [2, 2]\n");
-    ASSERT_CLOSE(V[0], 2.0f, 1e-5, "V[0]");
-    ASSERT_CLOSE(V[1], 2.0f, 1e-5, "V[1]");
+    ASSERT_CLOSE(K1[0], 6.0f, 1e-5, "K1[0] = 6");
+    ASSERT_CLOSE(K1[1], 5.0f, 1e-5, "K1[1] = 5");
+    ASSERT_CLOSE(K1[2], 4.0f, 1e-5, "K1[2] = 4");
 
+    ASSERT_CLOSE(V1[0], 9.0f,  1e-5, "V1[0] = 4+5 = 9");
+    ASSERT_CLOSE(V1[1], 11.0f, 1e-5, "V1[1] = 5+6 = 11");
+    ASSERT_CLOSE(V1[2], 10.0f, 1e-5, "V1[2] = 4+6 = 10");
     print_sep();
 
     /* ──────────────────────────────────────────────
      * 测试 2: 带 bias
      * ────────────────────────────────────────────── */
-
     printf("--- 测试 2: 带 bias ---\n\n");
 
-    float bias2[] = {0.5f, 0.5f,    /* Q 的 bias */
-                     1.0f, 1.0f,    /* K 的 bias */
-                    -1.0f, -1.0f};  /* V 的 bias */
-    float out2[6];
+    float bias2[] = {
+        0.5f,  0.5f,  0.5f,   /* Q 的 bias */
+        1.0f,  1.0f,  1.0f,   /* K 的 bias */
+       -1.0f, -1.0f, -1.0f    /* V 的 bias */
+    };
+    float out2[18];
 
     matmul_forward(out2, x, qkvw, bias2, B, T, C, 3 * C);
 
-    printf("Q_bias = [1+0.5, 2+0.5] = [1.5, 2.5]\n");
-    ASSERT_CLOSE(out2[0], 1.5f, 1e-5, "Q+bias[0]");
-    ASSERT_CLOSE(out2[1], 2.5f, 1e-5, "Q+bias[1]");
+    float* Q0_b = out2 + 0 * (3 * C);
+    float* K0_b = Q0_b + C;
+    float* V0_b = K0_b + C;
 
-    printf("K_bias = [3+1, 3+1] = [4, 4]\n");
-    ASSERT_CLOSE(out2[2], 4.0f, 1e-5, "K+bias[0]");
-    ASSERT_CLOSE(out2[3], 4.0f, 1e-5, "K+bias[1]");
+    printf("Token 0 叠加 bias 验证:\n");
+    ASSERT_CLOSE(Q0_b[0], 1.5f, 1e-5, "Q0_b[0] = 1 + 0.5");
+    ASSERT_CLOSE(Q0_b[1], 2.5f, 1e-5, "Q0_b[1] = 2 + 0.5");
+    ASSERT_CLOSE(Q0_b[2], 3.5f, 1e-5, "Q0_b[2] = 3 + 0.5");
 
-    printf("V_bias = [2-1, 2-1] = [1, 1]\n");
-    ASSERT_CLOSE(out2[4], 1.0f, 1e-5, "V+bias[0]");
-    ASSERT_CLOSE(out2[5], 1.0f, 1e-5, "V+bias[1]");
+    ASSERT_CLOSE(K0_b[0], 4.0f, 1e-5, "K0_b[0] = 3 + 1.0");
+    ASSERT_CLOSE(K0_b[1], 3.0f, 1e-5, "K0_b[1] = 2 + 1.0");
+    ASSERT_CLOSE(K0_b[2], 2.0f, 1e-5, "K0_b[2] = 1 + 1.0");
+
+    ASSERT_CLOSE(V0_b[0], 2.0f, 1e-5, "V0_b[0] = 3 - 1.0");
+    ASSERT_CLOSE(V0_b[1], 4.0f, 1e-5, "V0_b[1] = 5 - 1.0");
+    ASSERT_CLOSE(V0_b[2], 3.0f, 1e-5, "V0_b[2] = 4 - 1.0");
 
     TEST_END();
 }
