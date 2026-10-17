@@ -57,8 +57,13 @@ endforeach()
 set(LINE_SOURCES
     lines/_shared/line.c
     lines/lines_registry.c
+    lines/line_embed.c
     lines/line_ln_attn.c
+    lines/line_multi_head.c
+    lines/line_causal_mask.c
     lines/line_tiny_train.c
+    lines/line_trained_attn.c
+    lines/line_generate.c
 )
 
 add_executable(lines_all lines/lines_main.c ${LINE_SOURCES} ${CORE_SOURCES})

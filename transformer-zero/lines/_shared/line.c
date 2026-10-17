@@ -69,6 +69,14 @@ void line_mat(LineCtx* ctx, const char* name, const float* m, int rows, int cols
 void line_attn_mat(LineCtx* ctx, const char* name, const float* att,
                    int T, const char* const* row_labels, const char* const* col_labels) {
     if (ctx->quiet) return;
+    char fallback[16][8];
+    const char* fb_ptrs[16];
+    for (int i = 0; i < 16; i++) {
+        snprintf(fallback[i], 8, "t%d", i);
+        fb_ptrs[i] = fallback[i];
+    }
+    if (row_labels == NULL) row_labels = fb_ptrs;
+    if (col_labels == NULL) col_labels = fb_ptrs;
     printf("  " LN_CYAN "%s" LN_RESET " (%d×%d, 行=查询, 列=被关注):\n", name, T, T);
     printf("          ");
     for (int j = 0; j < T; j++) printf("%8s ", col_labels[j]);

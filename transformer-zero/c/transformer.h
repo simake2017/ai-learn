@@ -173,6 +173,11 @@ void attention_forward(float* out, float* preatt, float* att,
                        const float* inp,
                        int B, int T, int C, int NH);
 
+/* 双向注意力（BERT 式，无因果掩码）：学习线演示「偷看未来」的对照算子 */
+void attention_forward_bidirectional(float* out, float* preatt, float* att,
+                                     const float* inp,
+                                     int B, int T, int C, int NH);
+
 void gelu_forward(float* out, const float* inp, int N);
 void softmax_forward(float* probs, const float* logits, int B, int T, int V);
 void crossentropy_forward(float* losses, const float* probs,

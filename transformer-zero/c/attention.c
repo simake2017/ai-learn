@@ -86,3 +86,62 @@ void attention_forward(float* out, float* preatt, float* att,
         }
     }
 }
+/* === attention_forward_bidirectional =========================================
+ * 双向注意力（BERT 式，无因果掩码）：每个位置可以看到全部位置（包括未来）。
+ * 计算流程与 attention_forward 完全相同，只是把 t2 的循环上限从 t 放开到 T。
+ * 用于编码器类任务；也是学习线演示「偷看未来」效果的对照算子。
+ * ============================================================================= */
+void attention_forward_bidirectional(float* out, float* preatt, float* att,
+                                     const float* inp,
+                                     int B, int T, int C, int NH) {
+    int C3 = C * 3;
+    int hs = C / NH;
+    float scale = 1.0f / sqrtf((float)hs);
+
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            for (int h = 0; h < NH; h++) {
+                const float* query_t = inp + b * T * C3 + t * C3 + h * hs;
+                float* preatt_bth = preatt + ((b * NH + h) * T + t) * T;
+                float* att_bth = att + ((b * NH + h) * T + t) * T;
+
+                // Step 1: Q · K^T / sqrt(d)，全部 t2 都算（无掩码）
+                float maxval = -1e30f;
+                for (int t2 = 0; t2 < T; t2++) {
+                    const float* key_t2 = inp + b * T * C3 + t2 * C3 + h * hs + C;
+                    float val = 0.0f;
+                    for (int i = 0; i < hs; i++) {
+                        val += query_t[i] * key_t2[i];
+                    }
+                    val *= scale;
+                    preatt_bth[t2] = val;
+                    if (val > maxval) maxval = val;
+                }
+
+                // Step 2: exp(x - max) + 累加
+                float sum = 0.0f;
+                for (int t2 = 0; t2 < T; t2++) {
+                    float e = expf(preatt_bth[t2] - maxval);
+                    att_bth[t2] = e;
+                    sum += e;
+                }
+
+                // Step 3: 归一化
+                float inv_sum = 1.0f / sum;
+                for (int t2 = 0; t2 < T; t2++) {
+                    att_bth[t2] *= inv_sum;
+                }
+
+                // Step 4: 加权求和 V
+                for (int i = 0; i < hs; i++) {
+                    float o = 0.0f;
+                    for (int t2 = 0; t2 < T; t2++) {
+                        const float* value_t2 = inp + b * T * C3 + t2 * C3 + h * hs + 2 * C;
+                        o += att_bth[t2] * value_t2[i];
+                    }
+                    out[b * T * C + t * C + h * hs + i] = o;
+                }
+            }
+        }
+    }
+}
