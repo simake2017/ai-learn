@@ -48,7 +48,7 @@ int main() {
 
     int B = 1, T = 1, C = 4;
 
-    float x[] = {1.0f, 2.0f, 3.0f, 4.0f};
+    float x[] = {1.0f, 2.0f, 3.0f, 4.0f}; // mrd 这里的x 就是上面 b t c 所有数据组成的矩阵了
     float gamma[] = {1.0f, 1.0f, 1.0f, 1.0f};  /* 不缩放 */
     float beta[]  = {0.0f, 0.0f, 0.0f, 0.0f};  /* 不平移 */
     float out[4];
@@ -60,7 +60,7 @@ int main() {
 
     printf("--- 手算过程 ---\n");
     float mean = (1.0f + 2.0f + 3.0f + 4.0f) / 4.0f;
-    float var = 1.25f;
+    float var = 1.25f; // 方差
     float rstd = 1.0f / sqrtf(var + 1e-5f);
     printf("  μ = %.5f\n", mean);
     printf("  σ² = %.5f\n", var);

@@ -28,7 +28,7 @@ void attention_forward(float* out, float* preatt, float* att,
             for (int h = 0; h < NH; h++) {
                 // 取出位置 (b, t, h) 的 Q
                 // Q 在 inp 的前 C 维
-                const float* query_t = inp + b * T * C3 + t * C3 + h * hs;
+                const float* query_t = inp + b * T * C3 + t * C3 + h * hs;// mrd 这里就是找打对应的特征位置，找到对应的头
 
                 // preatt[b, h, t, :] 和 att[b, h, t, :]
                 float* preatt_bth = preatt + ((b * NH + h) * T + t) * T;
@@ -39,12 +39,12 @@ void attention_forward(float* out, float* preatt, float* att,
                 float maxval = -1e30f;
                 for (int t2 = 0; t2 <= t; t2++) {  // ← 因果 mask：只看 ≤ t
                     // K 在 inp 的中间 C 维
-                    const float* key_t2 = inp + b * T * C3 + t2 * C3 + h * hs + C;
+                    const float* key_t2 = inp + b * T * C3 + t2 * C3 + h * hs + C; // mrd 这里加c 是跳到 key 向量的位置
 
                     // 点积
                     float val = 0.0f;
                     for (int i = 0; i < hs; i++) {
-                        val += query_t[i] * key_t2[i];
+                        val += query_t[i] * key_t2[i]; // mrd q向量 * k 向量
                     }
                     val *= scale;
 
@@ -69,7 +69,7 @@ void attention_forward(float* out, float* preatt, float* att,
                 // 并显式写 0（等价于教科书"分数设 -∞"的写法，但省一次 exp）。
                 float sum = 0.0f;
                 for (int t2 = 0; t2 < T; t2++) {
-                    if (t2 <= t) {
+                    if (t2 <= t) { // mrd 只跟自己前面的词去做注意力
                         // 分子：exp(分数 - 本行最高分)，暂存到 att_bth（还没归一化）
                         float e = expf(preatt_bth[t2] - maxval);
                         att_bth[t2] = e;

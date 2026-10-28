@@ -36,6 +36,7 @@ void matmul_forward(float* out, const float* inp,
                 for (int i = 0; i < C; i++) { // 维度数
                     val += inp[bt * C + i] /* 向量值,向量矩阵 */  * weight[o * C + i] /* 权重值, 权重矩阵 */;
                 }
+                // mrd 这里就是成了一个 bt * oc 的矩阵
                 out[bt * OC + o] = val; // 行列的方式存储，每行是token ，每列是特征分
             }
         }

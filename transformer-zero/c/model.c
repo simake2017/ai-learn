@@ -193,9 +193,9 @@ void embedding_forward(float* out, const int* inputs,
                        int B, int T, int C) {
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
-            int token_id = inputs[b * T + t]; //wangyang 这里就是输入的token 向量
+            int token_id = inputs[b * T + t]; //wangyang 这里就是输入的token 向量,获取token id
             for (int c = 0; c < C; c++) {
-                out[(b * T + t) * C + c] =
+                out[(b * T + t) * C + c] = // wte 矩阵会叠加 wpe
                     wte[token_id * C + c] + wpe[t * C + c];
             }
         }

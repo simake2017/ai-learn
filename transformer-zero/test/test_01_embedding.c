@@ -60,7 +60,6 @@ int main() {
      * 💡 位置编码让模型知道"这个词在句子的第几个位置"
      *    真实 Transformer 用 sin/cos 或可学习的位置编码
      */
-    //wangyang 这里实际是简化了, 实际应该是每个局子中的每个token 都有一个位置矩阵，这里容易误导
     float wpe[T * C];
     for (int i = 0; i < T; i++) {
         for (int j = 0; j < C; j++) {

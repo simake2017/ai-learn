@@ -42,7 +42,7 @@ void layernorm_forward(float* out, const float* inp,
             // 归一化 + 缩放 + 平移
             for (int i = 0; i < C; i++) {
                 float n = (x[i] - mean) * rstd;
-                o[i] = n * weight[i] + bias[i];
+                o[i] = n * weight[i] + bias[i]; // mrd 这里是计算出新的权重矩阵值
             }
         }
     }
