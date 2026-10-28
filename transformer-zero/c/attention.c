@@ -53,22 +53,42 @@ void attention_forward(float* out, float* preatt, float* att,
                 }
 
                 // === Step 2: exp(x - max) + 累加 ===
+                //
+                // expf(x) 就是 e^x（e ≈ 2.71828），这里借它的三个性质：
+                //   1. 输出恒为正        → 注意力比例不能是负数
+                //   2. 保序（单调递增）   → 打分高的词，比例也高，排序不颠倒
+                //   3. 把"分差"变成"倍数" → 分数差 0.7，exp 后变成 ~2 倍关系，
+                //                          这就是 softmax 偏爱高分者的原因
+                //
+                // 为什么要减 maxval？
+                //   数学上 softmax 减不减最大值结果一样（分子分母同缩放），
+                //   但数值上：若分数是 100，exp(100) 直接溢出成 inf。
+                //   先减去本行最高分，最大值变成 exp(0) = 1，其余落在 0~1，绝对安全。
+                //
+                // 顺便完成因果 mask：未来位置既不参与 exp 也不参与累加，
+                // 并显式写 0（等价于教科书"分数设 -∞"的写法，但省一次 exp）。
                 float sum = 0.0f;
                 for (int t2 = 0; t2 < T; t2++) {
                     if (t2 <= t) {
+                        // 分子：exp(分数 - 本行最高分)，暂存到 att_bth（还没归一化）
                         float e = expf(preatt_bth[t2] - maxval);
                         att_bth[t2] = e;
-                        sum += e;
+                        sum += e;  // 累加分母：所有分子之和
                     } else {
-                        // 因果 mask：未来位置 = 0
+                        // 因果 mask：未来位置 = 0（0 / sum = 0，所以不必真算 exp）
                         att_bth[t2] = 0.0f;
                     }
                 }
 
-                // === Step 3: 归一化 ===
+                // === Step 3: 归一化（除以分母）===
+                //
+                // att[t2] = e[t2] / sum，即"该词的分量占全部分量的比例"。
+                // 用乘法代替除法：除法比乘法慢，缓存倒数 1/sum 后逐个乘。
+                // 归一化后所有 att 加起来恒等于 1，这一性质保证 Step 4 的
+                // 加权求和是合法的"按比例混合"（凸组合），而不是无界累加。
                 float inv_sum = 1.0f / sum;
                 for (int t2 = 0; t2 <= t; t2++) {
-                    att_bth[t2] *= inv_sum;
+                    att_bth[t2] *= inv_sum;  // e / sum → 最终注意力比例
                 }
 
                 // === Step 4: 加权求和 V ===
