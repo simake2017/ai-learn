@@ -21,7 +21,7 @@ void attention_forward(float* out, float* preatt, float* att,
                        int B, int T, int C, int NH) {
     int C3 = C * 3;          // Q/K/V 拼起来
     int hs = C / NH;         // 每个 head 维度
-    float scale = 1.0f / sqrtf((float)hs);
+    float scale = 1.0f / sqrtf((float)hs); // 这里就是 标准差
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -44,13 +44,15 @@ void attention_forward(float* out, float* preatt, float* att,
                     // 点积
                     float val = 0.0f;
                     for (int i = 0; i < hs; i++) {
-                        val += query_t[i] * key_t2[i]; // mrd q向量 * k 向量
+                        val += query_t[i] * key_t2[i]; // mrd q向量 * k 向量 , 用于判断是否是 要查询的内容
                     }
                     val *= scale;
 
                     preatt_bth[t2] = val;
                     if (val > maxval) maxval = val;
                 }
+
+                ///////////////mrd** 上面这部分计算出的就是 对于某个头head 某个token t 与其他token 的一个qk 命中关系
 
                 // === Step 2: exp(x - max) + 累加 ===
                 //
@@ -93,6 +95,9 @@ void attention_forward(float* out, float* preatt, float* att,
 
                 // === Step 4: 加权求和 V ===
                 // V 在 inp 的最后 C 维
+                /////////mrd ** 这里仍然是 在某个h 某个t 范围内对于 其他t 进行一个 注意力 * 对应各自的v 然后相加
+                //// mrd 上面的目的是 先用一个头算出来是不是 ，比如需要一个头包含多个维度共同定义是不是动物，如果是的话
+                /// 在乘以对应各自维度的 v ，比如形态 叫声 等等V
                 for (int i = 0; i < hs; i++) {
                     float o = 0.0f;
                     for (int t2 = 0; t2 <= t; t2++) {
