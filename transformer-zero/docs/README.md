@@ -41,7 +41,9 @@ transformer-zero/
 │   ├── 05-FORWARD.md
 │   ├── 06-AUTODIFF.md
 │   ├── 07-OPTIMIZER.md
-│   └── 08-INFERENCE.md
+│   ├── 08-INFERENCE.md
+│   ├── 09 ~ 16         # 词条、向量示例、QKV 树、损失与梯度
+│   └── 17-TEST-GELU-EXPLAINED.md   # test_06_gelu 深度解析（GELU 与高斯门控）
 ├── build.sh            # 一键编译
 └── run.sh              # 一键训练
 ```

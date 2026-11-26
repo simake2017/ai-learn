@@ -16,6 +16,11 @@ static inline float gelu(float x) {
     float c = 0.7978845608f;  // sqrt(2/π)
     float b = 0.044715f;
     float inner = c * (x + b * x * x * x);
+
+    /**
+     *
+    \(\tanh(x) = \frac{e^{x}-e^{-x}}{e^{x}+e^{-x}}\)
+     */
     return 0.5f * x * (1.0f + tanhf(inner));
 }
 

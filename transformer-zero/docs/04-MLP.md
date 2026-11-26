@@ -104,6 +104,8 @@ void gelu_forward(float* out, const float* inp, int N) {
 }
 ```
 
+> **深入阅读**：`Phi` 为什么是正态累积分布、`0.7978845608` 和 `0.044715` 两个魔数的来历、为什么近似式只能有奇次项、以及 `test/test_06_gelu.c` 的容差为什么是 `0.01` —— 见 [17-TEST-GELU-EXPLAINED.md](17-TEST-GELU-EXPLAINED.md)。
+
 ## 5. 残差连接（Residual Connection）
 
 每个子层都用 `y = x + sublayer(x)`：

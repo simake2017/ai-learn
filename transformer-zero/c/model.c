@@ -15,6 +15,12 @@
 /* 计算每个张量大小
  *
  * 注意：vary with config，按层参数 (ln1w 等) 数量 = n_layer × C
+* 升维：h = gelu(x @ fcw.T + fcb)
+→
+→ 形状变为 [B*T, 4*C]
+降维：out = h @ fcprojw.T + fcprojb
+→
+→ 形状变回 [B*T, C]
  */
 void fill_in_parameter_sizes(int *param_sizes, Config config) {
     int Vp = config.vocab_size;
@@ -23,15 +29,15 @@ void fill_in_parameter_sizes(int *param_sizes, Config config) {
     int L = config.n_layer;
     param_sizes[0]  = Vp * C;       // wte
     param_sizes[1]  = maxT * C;     // wpe
-    param_sizes[2]  = L * C;        // ln1w
-    param_sizes[3]  = L * C;        // ln1b
+    param_sizes[2]  = L * C;        // ln1w ，mrd 每一层对应的ln 矩阵(gamma)
+    param_sizes[3]  = L * C;        // ln1b mrd 每一层对应的ln矩阵(beta)
     param_sizes[4]  = L * 3 * C * C; // qkvw
     param_sizes[5]  = L * 3 * C;    // qkvb
     param_sizes[6]  = L * C * C;    // projw
     param_sizes[7]  = L * C;        // projb
-    param_sizes[8]  = L * C;        // ln2w
+    param_sizes[8]  = L * C;        // ln2w 每层mlp 前的 ln 缩放参数
     param_sizes[9]  = L * C;        // ln2b
-    param_sizes[10] = L * 4 * C * C; // fcw
+    param_sizes[10] = L * 4 * C * C; // fcw 用于升维
     param_sizes[11] = L * 4 * C;    // fcb
     param_sizes[12] = L * C * 4 * C; // fcprojw
     param_sizes[13] = L * C;        // fcprojb
